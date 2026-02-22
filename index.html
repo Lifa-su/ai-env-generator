@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI .env Generator & Manager</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0f172a;--surface:#1e293b;--surface2:#334155;--border:#475569;--text:#f1f5f9;--text2:#94a3b8;--primary:#3b82f6;--primary-hover:#2563eb;--danger:#ef4444;--warning:#f59e0b;--success:#22c55e;--accent:#8b5cf6;--radius:12px}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.6}
+.container{max-width:1200px;margin:0 auto;padding:20px}
+header{text-align:center;padding:30px 0 20px;border-bottom:1px solid var(--surface2);margin-bottom:24px}
+header h1{font-size:2rem;background:linear-gradient(135deg,var(--primary),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px}
+header p{color:var(--text2);font-size:0.95rem}
+.api-bar{display:flex;justify-content:flex-end;margin-bottom:12px;gap:8px}
+.tabs{display:flex;gap:4px;background:var(--surface);padding:4px;border-radius:var(--radius);margin-bottom:24px;overflow-x:auto;flex-wrap:wrap}
+.tab{padding:10px 18px;border:none;background:transparent;color:var(--text2);cursor:pointer;border-radius:8px;font-size:0.9rem;transition:all .2s;white-space:nowrap}
+.tab:hover{color:var(--text);background:var(--surface2)}
+.tab.active{background:var(--primary);color:#fff}
+.panel{display:none}.panel.active{display:block}
+.card{background:var(--surface);border:1px solid var(--surface2);border-radius:var(--radius);padding:20px;margin-bottom:16px}
+.card h3{font-size:1.1rem;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+label{display:block;font-size:0.85rem;color:var(--text2);margin-bottom:6px;font-weight:500}
+input,select,textarea{width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--surface2);border-radius:8px;color:var(--text);font-size:0.9rem;transition:border-color .2s}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--primary)}
+textarea{font-family:"SF Mono","Fira Code",monospace;resize:vertical;min-height:200px;line-height:1.5}
+.btn{padding:10px 20px;border:none;border-radius:8px;cursor:pointer;font-size:0.9rem;font-weight:500;transition:all .2s;display:inline-flex;align-items:center;gap:6px}
+.btn-primary{background:var(--primary);color:#fff}.btn-primary:hover{background:var(--primary-hover)}
+.btn-danger{background:var(--danger);color:#fff}.btn-success{background:var(--success);color:#fff}
+.btn-warning{background:var(--warning);color:#000}.btn-accent{background:var(--accent);color:#fff}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}.btn-outline:hover{background:var(--surface2)}
+.btn-sm{padding:6px 12px;font-size:0.8rem}
+.btn-group{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.form-group{margin-bottom:14px}
+.alert{padding:12px 16px;border-radius:8px;margin-bottom:12px;font-size:0.85rem;display:flex;align-items:flex-start;gap:8px}
+.alert-danger{background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:#fca5a5}
+.alert-warning{background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.3);color:#fcd34d}
+.alert-success{background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.3);color:#86efac}
+.alert-info{background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.3);color:#93c5fd}
+.env-line{font-family:monospace;padding:4px 8px;border-radius:4px;margin:2px 0;font-size:0.85rem}
+.env-line.missing{background:rgba(239,68,68,0.15);border-left:3px solid var(--danger)}
+.env-line.extra{background:rgba(245,158,11,0.15);border-left:3px solid var(--warning)}
+.env-line.match{background:rgba(34,197,94,0.1);border-left:3px solid var(--success)}
+.env-line.sensitive{background:rgba(239,68,68,0.2);border-left:3px solid var(--danger)}
+.badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:0.75rem;font-weight:600}
+.badge-danger{background:rgba(239,68,68,0.2);color:#fca5a5}
+.badge-warning{background:rgba(245,158,11,0.2);color:#fcd34d}
+.badge-success{background:rgba(34,197,94,0.2);color:#86efac}
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.env-selector{display:flex;gap:8px;margin-bottom:16px}
+.env-tag{padding:6px 16px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-size:0.85rem;transition:all .2s}
+.env-tag.active{background:var(--primary);border-color:var(--primary);color:#fff}
+.doc-output{background:var(--bg);border:1px solid var(--surface2);border-radius:8px;padding:16px;font-size:0.85rem;max-height:500px;overflow-y:auto}
+.doc-output table{width:100%;border-collapse:collapse;margin:8px 0}
+.doc-output th,.doc-output td{padding:8px 12px;text-align:left;border-bottom:1px solid var(--surface2);font-size:0.83rem}
+.doc-output th{color:var(--primary);font-weight:600}
+.toast{position:fixed;bottom:20px;right:20px;padding:12px 20px;border-radius:8px;color:#fff;font-size:0.85rem;z-index:1000;animation:slideIn .3s ease;display:none}
+.toast.show{display:block}
+@keyframes slideIn{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);display:none;align-items:center;justify-content:center;z-index:100}
+.modal-overlay.show{display:flex}
+.modal{background:var(--surface);border:1px solid var(--surface2);border-radius:var(--radius);padding:24px;width:90%;max-width:450px}
+.modal h3{margin-bottom:16px}
+.result-stats{display:flex;gap:16px;margin-bottom:12px;flex-wrap:wrap}
+.stat{text-align:center;padding:12px 16px;background:var(--bg);border-radius:8px;min-width:80px}
+.stat .num{font-size:1.5rem;font-weight:700}.stat .label{font-size:0.75rem;color:var(--text2)}
+@media(max-width:768px){.grid-2{grid-template-columns:1fr}.tabs{flex-wrap:wrap}.container{padding:12px}header h1{font-size:1.5rem}}
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>\U0001f510 AI .env Generator & Manager</h1>
+    <p>AI\u9a71\u52a8\u7684\u73af\u5883\u53d8\u91cf\u751f\u6210\u3001\u7ba1\u7406\u3001\u52a0\u5bc6\u4e0e\u6587\u6863\u5de5\u5177</p>
+  </header>
+
+<div class="container">
+  <header>
+    <h1>🔑 AI .env Generator & Manager</h1>
+    <p>AI驱动的环境变量生成、管理、加密与文档工具</p>
+  </header>
+  <div class="api-bar">
+    <button class="btn btn-outline btn-sm" onclick="showApiModal()">⚙️ API设置</button>
+  </div>
+  <div class="tabs" role="tablist">
+    <button class="tab active" onclick="switchTab('generate')" role="tab">🤖 AI生成</button>
+    <button class="tab" onclick="switchTab('compare')" role="tab">🔍 对比检查</button>
+    <button class="tab" onclick="switchTab('sensitive')" role="tab">⚠️ 敏感检测</button>
+    <button class="tab" onclick="switchTab('docs')" role="tab">📄 文档生成</button>
+    <button class="tab" onclick="switchTab('multienv')" role="tab">🌍 多环境</button>
+    <button class="tab" onclick="switchTab('crypto')" role="tab">🔒 加密解密</button>
+    <button class="tab" onclick="switchTab('validate')" role="tab">✅ 格式验证</button>
+  </div>
+
+  <!-- AI Generate Panel -->
+  <div id="panel-generate" class="panel active">
+    <div class="card">
+      <h3>🤖 AI生成.env模板</h3>
+      <div class="form-group">
+        <label for="projectType">项目类型</label>
+        <select id="projectType">
+          <option value="">-- 选择项目类型 --</option>
+          <option value="nextjs">Next.js</option>
+          <option value="react-vite">React + Vite</option>
+          <option value="vue">Vue.js</option>
+          <option value="express">Express.js</option>
+          <option value="nestjs">NestJS</option>
+          <option value="django">Django</option>
+          <option value="flask">Flask</option>
+          <option value="fastapi">FastAPI</option>
+          <option value="rails">Ruby on Rails</option>
+          <option value="laravel">Laravel</option>
+          <option value="springboot">Spring Boot</option>
+          <option value="docker">Docker Compose</option>
+          <option value="custom">自定义...</option>
+        </select>
+      </div>
+      <div class="form-group" id="customTypeGroup" style="display:none">
+        <label for="customType">自定义项目描述</label>
+        <input type="text" id="customType" placeholder="例如：Node.js + MongoDB + Redis + S3">
+      </div>
+      <div class="form-group">
+        <label for="extraRequirements">额外需求（可选）</label>
+        <input type="text" id="extraRequirements" placeholder="例如：需要Stripe支付、SendGrid邮件、AWS S3">
+      </div>
+      <div class="btn-group">
+        <button class="btn btn-primary" onclick="generateEnv()">🚀 生成.env模板</button>
+        <button class="btn btn-accent" onclick="generateEnv('example')">📋 生成.env.example</button>
+      </div>
+    </div>
+    <div class="card" id="generateResult" style="display:none">
+      <h3>📝 生成结果</h3>
+      <textarea id="generatedEnv" rows="15" readonly></textarea>
+      <div class="btn-group">
+        <button class="btn btn-success btn-sm" onclick="copyText('generatedEnv')">📋 复制</button>
+        <button class="btn btn-outline btn-sm" onclick="downloadText('generatedEnv','.env')">💾 下载.env</button>
+        <button class="btn btn-outline btn-sm" onclick="downloadText('generatedEnv','.env.example')">💾 下载.env.example</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Compare Panel -->
+  <div id="panel-compare" class="panel">
+    <div class="grid-2">
+      <div class="card">
+        <h3>📄 .env 文件</h3>
+        <textarea id="envContent" placeholder="粘贴你的 .env 文件内容..."></textarea>
+      </div>
+      <div class="card">
+        <h3>📋 .env.example 文件</h3>
+        <textarea id="envExampleContent" placeholder="粘贴你的 .env.example 文件内容..."></textarea>
+      </div>
+    </div>
+    <div class="btn-group" style="margin-bottom:16px">
+      <button class="btn btn-primary" onclick="compareEnvFiles()">🔍 开始对比</button>
+    </div>
+    <div id="compareResult"></div>
+  </div>
+
+  <!-- Sensitive Detection Panel -->
+  <div id="panel-sensitive" class="panel">
+    <div class="card">
+      <h3>⚠️ 敏感值检测</h3>
+      <p style="color:var(--text2);font-size:0.85rem;margin-bottom:12px">检测.env文件中可能包含的真实密钥、密码和敏感信息</p>
+      <textarea id="sensitiveInput" placeholder="粘贴你的 .env 文件内容进行检测..."></textarea>
+      <div class="btn-group">
+        <button class="btn btn-warning" onclick="detectSensitive()">🔍 检测敏感值</button>
+      </div>
+    </div>
+    <div id="sensitiveResult"></div>
+  </div>
+
+  <!-- Docs Panel -->
+  <div id="panel-docs" class="panel">
+    <div class="card">
+      <h3>📄 环境变量文档生成</h3>
+      <textarea id="docsInput" placeholder="粘贴你的 .env 文件内容，AI将自动生成文档..."></textarea>
+      <div class="btn-group">
+        <button class="btn btn-primary" onclick="generateDocs()">📄 AI生成文档</button>
+        <button class="btn btn-outline" onclick="generateDocsLocal()">⚡ 本地快速生成</button>
+      </div>
+    </div>
+    <div id="docsResult" style="display:none">
+      <div class="card">
+        <h3>📖 生成的文档</h3>
+        <div id="docsOutput" class="doc-output"></div>
+        <div class="btn-group">
+          <button class="btn btn-success btn-sm" onclick="copyDocs()">📋 复制Markdown</button>
+          <button class="btn btn-outline btn-sm" onclick="downloadDocs()">💾 下载README片段</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Multi-env Panel -->
+  <div id="panel-multienv" class="panel">
+    <div class="card">
+      <h3>🌍 多环境管理</h3>
+      <div class="env-selector">
+        <button class="env-tag active" onclick="switchEnv('development',this)">🟢 Development</button>
+        <button class="env-tag" onclick="switchEnv('staging',this)">🟡 Staging</button>
+        <button class="env-tag" onclick="switchEnv('production',this)">🔴 Production</button>
+      </div>
+      <textarea id="multienvEditor" rows="15" placeholder="在此编辑当前环境的变量..."></textarea>
+      <div class="btn-group">
+        <button class="btn btn-primary" onclick="saveCurrentEnv()">💾 保存当前环境</button>
+        <button class="btn btn-accent" onclick="aiSyncEnvs()">🤖 AI同步所有环境</button>
+        <button class="btn btn-outline" onclick="exportAllEnvs()">📦 导出所有环境</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Crypto Panel -->
+  <div id="panel-crypto" class="panel">
+    <div class="card">
+      <h3>🔒 AES-256 加密/解密</h3>
+      <div class="form-group">
+        <label for="cryptoPassword">加密密码</label>
+        <input type="password" id="cryptoPassword" placeholder="输入加密密码（请牢记）">
+      </div>
+      <div class="form-group">
+        <label for="cryptoInput">输入内容</label>
+        <textarea id="cryptoInput" placeholder="粘贴.env内容进行加密，或粘贴密文进行解密..."></textarea>
+      </div>
+      <div class="btn-group">
+        <button class="btn btn-danger" onclick="encryptEnv()">🔐 加密</button>
+        <button class="btn btn-success" onclick="decryptEnv()">🔓 解密</button>
+      </div>
+    </div>
+    <div class="card" id="cryptoResult" style="display:none">
+      <h3 id="cryptoResultTitle">结果</h3>
+      <textarea id="cryptoOutput" rows="10" readonly></textarea>
+      <div class="btn-group">
+        <button class="btn btn-success btn-sm" onclick="copyText('cryptoOutput')">📋 复制</button>
+        <button class="btn btn-outline btn-sm" onclick="downloadCrypto()">💾 下载</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Validate Panel -->
+  <div id="panel-validate" class="panel">
+    <div class="card">
+      <h3>✅ 格式验证与错误检查</h3>
+      <textarea id="validateInput" placeholder="粘贴.env内容进行格式验证..."></textarea>
+      <div class="btn-group">
+        <button class="btn btn-primary" onclick="validateEnv()">✅ 验证格式</button>
+        <button class="btn btn-outline" onclick="formatEnv()">🔧 自动修复格式</button>
+      </div>
+    </div>
+    <div id="validateResult"></div>
+  </div>
+
+</div>
+
+<!-- Toast -->
+<div id="toast" class="toast"></div>
+
+<!-- API Modal -->
+<div class="modal-overlay" id="apiModal">
+  <div class="modal">
+    <h3>⚙️ DeepSeek API 设置</h3>
+    <div class="form-group">
+      <label for="apiKeyInput">API Key</label>
+      <input type="password" id="apiKeyInput" placeholder="sk-...">
+    </div>
+    <div class="form-group">
+      <label for="apiBaseInput">API Base URL</label>
+      <input type="text" id="apiBaseInput" placeholder="https://api.deepseek.com">
+    </div>
+    <div class="btn-group">
+      <button class="btn btn-primary" onclick="saveApiConfig()">保存</button>
+      <button class="btn btn-outline" onclick="hideApiModal()">取消</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ==================== State & Config ====================
+const state = {
+  apiKey: localStorage.getItem('deepseek_api_key') || '',
+  apiBase: localStorage.getItem('deepseek_api_base') || 'https://api.deepseek.com',
+  envs: JSON.parse(localStorage.getItem('env_multienv') || '{}'),
+  currentEnv: 'development',
+  docsMarkdown: ''
+};
+
+// ==================== Tab Switching ====================
+function switchTab(name) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// ==================== Toast ====================
+function showToast(msg, type) {
+  type = type || 'success';
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = type === 'success' ? 'var(--success)' : type === 'danger' ? 'var(--danger)' : 'var(--warning)';
+  t.classList.add('show');
+  setTimeout(function() { t.classList.remove('show'); }, 2500);
+}
+
+// ==================== API Modal ====================
+function showApiModal() {
+  document.getElementById('apiKeyInput').value = state.apiKey;
+  document.getElementById('apiBaseInput').value = state.apiBase;
+  document.getElementById('apiModal').classList.add('show');
+}
+function hideApiModal() { document.getElementById('apiModal').classList.remove('show'); }
+function saveApiConfig() {
+  state.apiKey = document.getElementById('apiKeyInput').value.trim();
+  state.apiBase = document.getElementById('apiBaseInput').value.trim() || 'https://api.deepseek.com';
+  localStorage.setItem('deepseek_api_key', state.apiKey);
+  localStorage.setItem('deepseek_api_base', state.apiBase);
+  hideApiModal();
+  showToast('API\u914d\u7f6e\u5df2\u4fdd\u5b58');
+}
+
+// ==================== DeepSeek API Call ====================
+async function callDeepSeek(prompt, systemPrompt) {
+  if (!state.apiKey) { showApiModal(); throw new Error('\u8bf7\u5148\u914d\u7f6eAPI Key'); }
+  const msgs = [];
+  if (systemPrompt) msgs.push({ role: 'system', content: systemPrompt });
+  msgs.push({ role: 'user', content: prompt });
+  const res = await fetch(state.apiBase + '/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + state.apiKey },
+    body: JSON.stringify({ model: 'deepseek-chat', messages: msgs, temperature: 0.3, max_tokens: 4096 })
+  });
+  if (!res.ok) {
+    const e = await res.json().catch(function() { return {}; });
+    throw new Error((e.error && e.error.message) || 'API\u8bf7\u6c42\u5931\u8d25: ' + res.status);
+  }
+  const data = await res.json();
+  return data.choices[0].message.content;
+}
+
+// ==================== Copy & Download ====================
+function copyText(id) {
+  var el = document.getElementById(id);
+  var text = el.value || el.textContent;
+  navigator.clipboard.writeText(text).then(function() { showToast('\u5df2\u590d\u5236\u5230\u526a\u8d34\u677f'); });
+}
+function downloadText(id, filename) {
+  var text = document.getElementById(id).value;
+  var blob = new Blob([text], { type: 'text/plain' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showToast('\u5df2\u4e0b\u8f7d ' + filename);
+}
+
+// ==================== Parse .env ====================
+function parseEnv(text) {
+  var vars = {};
+  var lines = text.split('\n');
+  for (var i = 0; i < lines.length; i++) {
+    var trimmed = lines[i].trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    var eqIdx = trimmed.indexOf('=');
+    if (eqIdx === -1) continue;
+    var key = trimmed.substring(0, eqIdx).trim();
+    var val = trimmed.substring(eqIdx + 1).trim();
+    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+      val = val.slice(1, -1);
+    }
+    vars[key] = val;
+  }
+  return vars;
+}
+
+// ==================== AI Generate ====================
+document.getElementById('projectType').addEventListener('change', function() {
+  document.getElementById('customTypeGroup').style.display = this.value === 'custom' ? 'block' : 'none';
+});
+
+async function generateEnv(mode) {
+  mode = mode || 'env';
+  var type = document.getElementById('projectType').value;
+  if (!type) { showToast('\u8bf7\u9009\u62e9\u9879\u76ee\u7c7b\u578b', 'warning'); return; }
+  var projectName = type === 'custom' ? document.getElementById('customType').value : type;
+  if (type === 'custom' && !projectName) { showToast('\u8bf7\u8f93\u5165\u9879\u76ee\u63cf\u8ff0', 'warning'); return; }
+  var extra = document.getElementById('extraRequirements').value;
+  var btn = event.target;
+  var origText = btn.innerHTML;
+  btn.innerHTML = '<span class="spinner"></span> \u751f\u6210\u4e2d...';
+  btn.disabled = true;
+  try {
+    var prompt = '\u4e3a' + projectName + '\u9879\u76ee\u751f\u6210' + (mode === 'example' ? '.env.example' : '.env') + '\u6587\u4ef6\u6a21\u677f\u3002\n';
+    if (extra) prompt += '\u989d\u5916\u9700\u6c42\uff1a' + extra + '\n';
+    prompt += '\u8981\u6c42\uff1a\n1. \u5305\u542b\u6240\u6709\u5e38\u7528\u73af\u5883\u53d8\u91cf\n2. \u6309\u529f\u80fd\u5206\u7ec4\uff0c\u7528\u6ce8\u91ca\u5206\u9694\n3. ' + (mode === 'example' ? '\u503c\u7559\u7a7a\u6216\u586b\u5199\u793a\u4f8b\u5360\u4f4d\u7b26' : '\u586b\u5199\u5408\u7406\u7684\u5f00\u53d1\u73af\u5883\u9ed8\u8ba4\u503c') + '\n4. \u5305\u542b\u8bf4\u660e\u6ce8\u91ca\n5. \u53ea\u8f93\u51fa.env\u6587\u4ef6\u5185\u5bb9\uff0c\u4e0d\u8981\u5176\u4ed6\u89e3\u91ca';
+    var result = await callDeepSeek(prompt, '\u4f60\u662f\u4e00\u4e2a\u8d44\u6df1\u5168\u6808\u5f00\u53d1\u5de5\u7a0b\u5e08\uff0c\u7cbe\u901a\u5404\u79cd\u6846\u67b6\u7684\u73af\u5883\u53d8\u91cf\u914d\u7f6e\u3002\u53ea\u8f93\u51fa.env\u6587\u4ef6\u5185\u5bb9\uff0c\u4e0d\u8981markdown\u4ee3\u7801\u5757\u6807\u8bb0\u3002');
+    var cleaned = result.replace(/^```[\w]*\n?/gm, '').replace(/```$/gm, '').trim();
+    document.getElementById('generatedEnv').value = cleaned;
+    document.getElementById('generateResult').style.display = 'block';
+    showToast('\u751f\u6210\u6210\u529f\uff01');
+  } catch (e) {
+    showToast(e.message, 'danger');
+  } finally {
+    btn.innerHTML = origText;
+    btn.disabled = false;
+  }
+}
+
+// ==================== Compare ====================
+function compareEnvFiles() {
+  var envText = document.getElementById('envContent').value.trim();
+  var exampleText = document.getElementById('envExampleContent').value.trim();
+  if (!envText || !exampleText) { showToast('\u8bf7\u586b\u5199\u4e24\u4e2a\u6587\u4ef6\u5185\u5bb9', 'warning'); return; }
+  var env = parseEnv(envText);
+  var example = parseEnv(exampleText);
+  var envKeys = Object.keys(env);
+  var exampleKeys = Object.keys(example);
+  var envKeySet = {};
+  envKeys.forEach(function(k) { envKeySet[k] = true; });
+  var exKeySet = {};
+  exampleKeys.forEach(function(k) { exKeySet[k] = true; });
+  var missing = exampleKeys.filter(function(k) { return !envKeySet[k]; });
+  var extra = envKeys.filter(function(k) { return !exKeySet[k]; });
+  var matched = exampleKeys.filter(function(k) { return envKeySet[k]; });
+  var html = '<div class="card"><h3>\ud83d\udcca \u5bf9\u6bd4\u7ed3\u679c</h3>';
+  html += '<div class="result-stats">';
+  html += '<div class="stat"><div class="num" style="color:var(--success)">' + matched.length + '</div><div class="label">\u5339\u914d</div></div>';
+  html += '<div class="stat"><div class="num" style="color:var(--danger)">' + missing.length + '</div><div class="label">\u7f3a\u5931</div></div>';
+  html += '<div class="stat"><div class="num" style="color:var(--warning)">' + extra.length + '</div><div class="label">\u591a\u4f59</div></div>';
+  html += '</div>';
+  if (missing.length) {
+    html += '<div class="alert alert-danger">\u26a0\ufe0f .env\u4e2d\u7f3a\u5c11\u4ee5\u4e0b\u53d8\u91cf\uff1a</div>';
+    missing.forEach(function(k) { html += '<div class="env-line missing">\u274c ' + k + '=</div>'; });
+  }
+  if (extra.length) {
+    html += '<div class="alert alert-warning" style="margin-top:12px">\ud83d\udccc .env\u4e2d\u591a\u51fa\u7684\u53d8\u91cf\uff1a</div>';
+    extra.forEach(function(k) { html += '<div class="env-line extra">\u2795 ' + k + '=' + env[k] + '</div>'; });
+  }
+  if (matched.length) {
+    html += '<div class="alert alert-success" style="margin-top:12px">\u2705 \u5339\u914d\u7684\u53d8\u91cf\uff1a</div>';
+    matched.forEach(function(k) {
+      var hasVal = env[k] && env[k].length > 0;
+      html += '<div class="env-line match">\u2713 ' + k + ' ' + (hasVal ? '<span class="badge badge-success">\u5df2\u8bbe\u503c</span>' : '<span class="badge badge-warning">\u7a7a\u503c</span>') + '</div>';
+    });
+  }
+  if (!missing.length && !extra.length) {
+    html += '<div class="alert alert-success">\ud83c\udf89 \u5b8c\u7f8e\uff01.env\u548c.env.example\u5b8c\u5168\u5339\u914d\uff01</div>';
+  }
+  html += '</div>';
+  document.getElementById('compareResult').innerHTML = html;
+}
+
+// ==================== Sensitive Detection ====================
+var SENSITIVE_PATTERNS = [
+  { pattern: /^(.*(?:SECRET|PASSWORD|PASSWD|PWD|TOKEN|PRIVATE.?KEY|AUTH|CREDENTIAL|API.?KEY|ACCESS.?KEY|SIGNING).*)=(.+)$/i, level: 'high', desc: '\u5bc6\u94a5/\u5bc6\u7801\u7c7b\u53d8\u91cf' },
+  { pattern: /^(.*)=(sk-[a-zA-Z0-9]{20,})$/i, level: 'critical', desc: 'OpenAI/API\u5bc6\u94a5\u683c\u5f0f' },
+  { pattern: /^(.*)=(ghp_[a-zA-Z0-9]{36,})$/i, level: 'critical', desc: 'GitHub Token' },
+  { pattern: /^(.*)=(xox[bpsa]-[a-zA-Z0-9-]{10,})$/i, level: 'critical', desc: 'Slack Token' },
+  { pattern: /^(.*)=(AKIA[0-9A-Z]{16})$/i, level: 'critical', desc: 'AWS Access Key' },
+  { pattern: /^(.*)=([a-zA-Z0-9+\/]{40,}={0,2})$/i, level: 'medium', desc: '\u53ef\u80fd\u7684Base64\u7f16\u7801\u5bc6\u94a5' },
+  { pattern: /^(.*)=(https?:\/\/[^:]+:[^@]+@.+)$/i, level: 'high', desc: 'URL\u4e2d\u5305\u542b\u51ed\u636e' },
+  { pattern: /^(.*)=(.{0,3})$/i, level: 'low', desc: '\u503c\u8fc7\u77ed' }
+];
+
+function detectSensitive() {
+  var text = document.getElementById('sensitiveInput').value.trim();
+  if (!text) { showToast('\u8bf7\u8f93\u5165.env\u5185\u5bb9', 'warning'); return; }
+  var lines = text.split('\n');
+  var findings = [];
+  var totalVars = 0;
+  for (var i = 0; i < lines.length; i++) {
+    var trimmed = lines[i].trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    if (!trimmed.includes('=')) continue;
+    totalVars++;
+    for (var j = 0; j < SENSITIVE_PATTERNS.length; j++) {
+      var rule = SENSITIVE_PATTERNS[j];
+      var m = trimmed.match(rule.pattern);
+      if (m) {
+        findings.push({ key: m[1], value: m[2], level: rule.level, desc: rule.desc });
+        break;
+      }
+    }
+  }
+  var critical = findings.filter(function(f) { return f.level === 'critical'; }).length;
+  var high = findings.filter(function(f) { return f.level === 'high'; }).length;
+  var medium = findings.filter(function(f) { return f.level === 'medium'; }).length;
+  var low = findings.filter(function(f) { return f.level === 'low'; }).length;
+  var html = '<div class="card"><h3>\ud83d\udd0d \u68c0\u6d4b\u7ed3\u679c</h3>';
+  html += '<div class="result-stats">';
+  html += '<div class="stat"><div class="num">' + totalVars + '</div><div class="label">\u603b\u53d8\u91cf</div></div>';
+  html += '<div class="stat"><div class="num" style="color:#ff4444">' + critical + '</div><div class="label">\u4e25\u91cd</div></div>';
+  html += '<div class="stat"><div class="num" style="color:var(--danger)">' + high + '</div><div class="label">\u9ad8\u5371</div></div>';
+  html += '<div class="stat"><div class="num" style="color:var(--warning)">' + medium + '</div><div class="label">\u4e2d\u5371</div></div>';
+  html += '<div class="stat"><div class="num" style="color:var(--text2)">' + low + '</div><div class="label">\u4f4e\u5371</div></div>';
+  html += '</div>';
+  if (!findings.length) {
+    html += '<div class="alert alert-success">\u2705 \u672a\u53d1\u73b0\u654f\u611f\u503c\uff01</div>';
+  } else {
+    findings.forEach(function(f) {
+      var levelClass = f.level === 'critical' || f.level === 'high' ? 'danger' : f.level === 'medium' ? 'warning' : 'info';
+      var masked = f.value.substring(0, 4) + '****' + f.value.substring(f.value.length - 2);
+      html += '<div class="env-line sensitive">';
+      html += '<span class="badge badge-' + (f.level === 'low' ? 'warning' : 'danger') + '">' + f.level.toUpperCase() + '</span> ';
+      html += '<strong>' + f.key + '</strong>=' + masked + ' \u2014 ' + f.desc;
+      html += '</div>';
+    });
+    html += '<div class="alert alert-danger" style="margin-top:12px">\ud83d\udea8 \u5efa\u8bae\uff1a\u4e0d\u8981\u5c06\u5305\u542b\u771f\u5b9e\u5bc6\u94a5\u7684.env\u6587\u4ef6\u63d0\u4ea4\u5230Git\uff01\u8bf7\u786e\u4fdd.gitignore\u4e2d\u5305\u542b.env</div>';
+  }
+  html += '</div>';
+  document.getElementById('sensitiveResult').innerHTML = html;
+}
+
+// ==================== Docs Generation ====================
+async function generateDocs() {
+  var text = document.getElementById('docsInput').value.trim();
+  if (!text) { showToast('\u8bf7\u8f93\u5165.env\u5185\u5bb9', 'warning'); return; }
+  var btn = event.target;
+  var origText = btn.innerHTML;
+  btn.innerHTML = '<span class="spinner"></span> \u751f\u6210\u4e2d...';
+  btn.disabled = true;
+  try {
+    var prompt = '\u4e3a\u4ee5\u4e0b.env\u6587\u4ef6\u751f\u6210\u8be6\u7ec6\u7684\u73af\u5883\u53d8\u91cf\u6587\u6863\uff0c\u4f7f\u7528Markdown\u8868\u683c\u683c\u5f0f\uff1a\n\n' + text + '\n\n\u8981\u6c42\uff1a\n1. \u8868\u683c\u5217\uff1a\u53d8\u91cf\u540d | \u8bf4\u660e | \u7c7b\u578b | \u9ed8\u8ba4\u503c | \u662f\u5426\u5fc5\u586b\n2. \u6309\u529f\u80fd\u5206\u7ec4\n3. \u6dfb\u52a0\u6bcf\u7ec4\u7684\u8bf4\u660e\n4. \u6807\u6ce8\u654f\u611f\u53d8\u91cf\n5. \u8f93\u51fa\u7eafMarkdown';
+    var result = await callDeepSeek(prompt, '\u4f60\u662f\u6280\u672f\u6587\u6863\u4e13\u5bb6\u3002\u751f\u6210\u6e05\u6670\u3001\u4e13\u4e1a\u7684\u73af\u5883\u53d8\u91cf\u6587\u6863\u3002');
+    state.docsMarkdown = result;
+    document.getElementById('docsOutput').innerHTML = markdownToHtml(result);
+    document.getElementById('docsResult').style.display = 'block';
+    showToast('\u6587\u6863\u751f\u6210\u6210\u529f\uff01');
+  } catch (e) {
+    showToast(e.message, 'danger');
+  } finally {
+    btn.innerHTML = origText;
+    btn.disabled = false;
+  }
+}
+
+function generateDocsLocal() {
+  var text = document.getElementById('docsInput').value.trim();
+  if (!text) { showToast('\u8bf7\u8f93\u5165.env\u5185\u5bb9', 'warning'); return; }
+  var vars = parseEnv(text);
+  var md = '# \u73af\u5883\u53d8\u91cf\u6587\u6863\n\n';
+  md += '| \u53d8\u91cf\u540d | \u5f53\u524d\u503c | \u8bf4\u660e | \u654f\u611f |\n';
+  md += '|--------|--------|------|------|\n';
+  var keys = Object.keys(vars);
+  for (var i = 0; i < keys.length; i++) {
+    var key = keys[i], val = vars[key];
+    var isSensitive = /secret|password|token|key|auth|credential/i.test(key);
+    var maskedVal = isSensitive ? '***' : (val || '(\u7a7a)');
+    var desc = guessDescription(key);
+    md += '| `' + key + '` | ' + maskedVal + ' | ' + desc + ' | ' + (isSensitive ? '\u26a0\ufe0f \u662f' : '\u5426') + ' |\n';
+  }
+  md += '\n> \u5171 ' + keys.length + ' \u4e2a\u53d8\u91cf\uff0c\u751f\u6210\u65f6\u95f4\uff1a' + new Date().toLocaleString('zh-CN') + '\n';
+  state.docsMarkdown = md;
+  document.getElementById('docsOutput').innerHTML = markdownToHtml(md);
+  document.getElementById('docsResult').style.display = 'block';
+  showToast('\u672c\u5730\u6587\u6863\u751f\u6210\u6210\u529f\uff01');
+}
+
+function guessDescription(key) {
+  var map = {
+    'DB_HOST': '\u6570\u636e\u5e93\u4e3b\u673a\u5730\u5740', 'DB_PORT': '\u6570\u636e\u5e93\u7aef\u53e3', 'DB_NAME': '\u6570\u636e\u5e93\u540d\u79f0',
+    'DB_USER': '\u6570\u636e\u5e93\u7528\u6237\u540d', 'DB_PASSWORD': '\u6570\u636e\u5e93\u5bc6\u7801', 'DATABASE_URL': '\u6570\u636e\u5e93\u8fde\u63a5URL',
+    'REDIS_URL': 'Redis\u8fde\u63a5URL', 'REDIS_HOST': 'Redis\u4e3b\u673a', 'PORT': '\u670d\u52a1\u7aef\u53e3',
+    'HOST': '\u670d\u52a1\u4e3b\u673a', 'NODE_ENV': 'Node\u73af\u5883', 'API_KEY': 'API\u5bc6\u94a5',
+    'SECRET_KEY': '\u5e94\u7528\u5bc6\u94a5', 'JWT_SECRET': 'JWT\u7b7e\u540d\u5bc6\u94a5',
+    'AWS_ACCESS_KEY_ID': 'AWS\u8bbf\u95ee\u5bc6\u94a5ID', 'AWS_SECRET_ACCESS_KEY': 'AWS\u5bc6\u94a5',
+    'SMTP_HOST': '\u90ae\u4ef6\u670d\u52a1\u5668', 'SMTP_PORT': '\u90ae\u4ef6\u7aef\u53e3'
+  };
+  if (map[key]) return map[key];
+  if (/HOST/i.test(key)) return '\u4e3b\u673a\u5730\u5740';
+  if (/PORT/i.test(key)) return '\u7aef\u53e3\u53f7';
+  if (/URL/i.test(key)) return '\u8fde\u63a5URL';
+  if (/KEY/i.test(key)) return '\u5bc6\u94a5';
+  if (/SECRET/i.test(key)) return '\u5bc6\u94a5/\u5bc6\u7801';
+  if (/PASSWORD|PASSWD|PWD/i.test(key)) return '\u5bc6\u7801';
+  if (/TOKEN/i.test(key)) return '\u8bbf\u95ee\u4ee4\u724c';
+  if (/USER/i.test(key)) return '\u7528\u6237\u540d';
+  if (/EMAIL|MAIL/i.test(key)) return '\u90ae\u7bb1\u5730\u5740';
+  if (/DEBUG/i.test(key)) return '\u8c03\u8bd5\u6a21\u5f0f';
+  if (/LOG/i.test(key)) return '\u65e5\u5fd7\u914d\u7f6e';
+  return '\u73af\u5883\u53d8\u91cf';
+}
+
+function markdownToHtml(md) {
+  var html = md
+    .replace(/^### (.+)$/gm, '<h4 style="color:var(--accent);margin:16px 0 8px">$1</h4>')
+    .replace(/^## (.+)$/gm, '<h3 style="color:var(--primary);margin:16px 0 8px">$1</h3>')
+    .replace(/^# (.+)$/gm, '<h2 style="color:var(--text);margin:16px 0 8px">$1</h2>')
+    .replace(/`([^`]+)`/g, '<code style="background:var(--surface2);padding:2px 6px;border-radius:4px;font-size:0.85em">$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/^> (.+)$/gm, '<blockquote style="border-left:3px solid var(--primary);padding:8px 12px;margin:8px 0;color:var(--text2)">$1</blockquote>')
+    .replace(/^- (.+)$/gm, '<li style="margin:2px 0;margin-left:20px">$1</li>');
+  var lines = html.split('\n');
+  var inTable = false, tableHtml = '', result = '';
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i];
+    if (line.trim().startsWith('|') && line.trim().endsWith('|')) {
+      if (line.includes('---')) continue;
+      var cells = line.split('|').filter(function(c) { return c.trim() !== ''; });
+      if (!inTable) {
+        inTable = true;
+        tableHtml = '<table><thead><tr>' + cells.map(function(c) { return '<th>' + c.trim() + '</th>'; }).join('') + '</tr></thead><tbody>';
+      } else {
+        tableHtml += '<tr>' + cells.map(function(c) { return '<td>' + c.trim() + '</td>'; }).join('') + '</tr>';
+      }
+    } else {
+      if (inTable) { result += tableHtml + '</tbody></table>'; inTable = false; tableHtml = ''; }
+      result += line + '\n';
+    }
+  }
+  if (inTable) result += tableHtml + '</tbody></table>';
+  return result;
+}
+
+function copyDocs() {
+  navigator.clipboard.writeText(state.docsMarkdown).then(function() { showToast('Markdown\u5df2\u590d\u5236'); });
+}
+function downloadDocs() {
+  var blob = new Blob([state.docsMarkdown], { type: 'text/markdown' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'ENV_DOCS.md';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showToast('\u6587\u6863\u5df2\u4e0b\u8f7d');
+}
+
+// ==================== Multi-Environment ====================
+function switchEnv(env, btn) {
+  saveCurrentEnvSilent();
+  state.currentEnv = env;
+  document.querySelectorAll('.env-tag').forEach(function(t) { t.classList.remove('active'); });
+  if (btn) btn.classList.add('active');
+  document.getElementById('multienvEditor').value = state.envs[env] || '';
+}
+
+function saveCurrentEnvSilent() {
+  var content = document.getElementById('multienvEditor').value;
+  if (content.trim()) {
+    state.envs[state.currentEnv] = content;
+    localStorage.setItem('env_multienv', JSON.stringify(state.envs));
+  }
+}
+
+function saveCurrentEnv() {
+  saveCurrentEnvSilent();
+  showToast(state.currentEnv + ' \u73af\u5883\u5df2\u4fdd\u5b58');
+}
+
+async function aiSyncEnvs() {
+  var current = document.getElementById('multienvEditor').value.trim();
+  if (!current) { showToast('\u5f53\u524d\u73af\u5883\u4e3a\u7a7a', 'warning'); return; }
+  var btn = event.target;
+  var origText = btn.innerHTML;
+  btn.innerHTML = '<span class="spinner"></span> AI\u540c\u6b65\u4e2d...';
+  btn.disabled = true;
+  try {
+    var prompt = '\u57fa\u4e8e\u4ee5\u4e0bdevelopment\u73af\u5883\u7684.env\u914d\u7f6e\uff0c\u751f\u6210staging\u548cproduction\u73af\u5883\u7684\u914d\u7f6e\u3002\n\nDevelopment .env:\n' + current + '\n\n\u8981\u6c42\uff1a\n1. \u5206\u522b\u8f93\u51fastaging\u548cproduction\u7684\u5b8c\u6574.env\n2. \u7528 "===STAGING===" \u548c "===PRODUCTION===" \u5206\u9694\n3. staging\u4f7f\u7528\u6d4b\u8bd5/\u9884\u53d1\u5e03\u7684\u5408\u7406\u503c\n4. production\u4f7f\u7528\u751f\u4ea7\u73af\u5883\u7684\u5360\u4f4d\u7b26\uff08\u654f\u611f\u503c\u7528<CHANGE_ME>\u6807\u8bb0\uff09\n5. \u8c03\u6574DEBUG\u3001LOG_LEVEL\u7b49\u73af\u5883\u76f8\u5173\u53d8\u91cf\n6. \u53ea\u8f93\u51fa.env\u5185\u5bb9';
+    var result = await callDeepSeek(prompt, '\u4f60\u662fDevOps\u4e13\u5bb6\uff0c\u7cbe\u901a\u591a\u73af\u5883\u914d\u7f6e\u7ba1\u7406\u3002');
+    var parts = result.split(/===\s*STAGING\s*===/i);
+    if (parts.length >= 2) {
+      var stagingAndProd = parts[1].split(/===\s*PRODUCTION\s*===/i);
+      state.envs['staging'] = stagingAndProd[0].replace(/^```[\w]*\n?/gm, '').replace(/```$/gm, '').trim();
+      if (stagingAndProd.length >= 2) {
+        state.envs['production'] = stagingAndProd[1].replace(/^```[\w]*\n?/gm, '').replace(/```$/gm, '').trim();
+      }
+    }
+    state.envs['development'] = current;
+    localStorage.setItem('env_multienv', JSON.stringify(state.envs));
+    showToast('\u4e09\u4e2a\u73af\u5883\u5df2\u540c\u6b65\u751f\u6210\uff01');
+  } catch (e) {
+    showToast(e.message, 'danger');
+  } finally {
+    btn.innerHTML = origText;
+    btn.disabled = false;
+  }
+}
+
+function exportAllEnvs() {
+  saveCurrentEnvSilent();
+  var envNames = ['development', 'staging', 'production'];
+  for (var i = 0; i < envNames.length; i++) {
+    var env = envNames[i];
+    if (state.envs[env]) {
+      var blob = new Blob([state.envs[env]], { type: 'text/plain' });
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = '.env.' + env;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+  }
+  showToast('\u6240\u6709\u73af\u5883\u6587\u4ef6\u5df2\u5bfc\u51fa');
+}
+
+// ==================== AES-256 Crypto ====================
+async function getKeyFromPassword(password, salt) {
+  var enc = new TextEncoder();
+  var keyMaterial = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt: salt, iterations: 100000, hash: 'SHA-256' },
+    keyMaterial,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  );
+}
+
+async function encryptEnv() {
+  var password = document.getElementById('cryptoPassword').value;
+  var text = document.getElementById('cryptoInput').value.trim();
+  if (!password) { showToast('\u8bf7\u8f93\u5165\u52a0\u5bc6\u5bc6\u7801', 'warning'); return; }
+  if (!text) { showToast('\u8bf7\u8f93\u5165\u8981\u52a0\u5bc6\u7684\u5185\u5bb9', 'warning'); return; }
+  try {
+    var salt = crypto.getRandomValues(new Uint8Array(16));
+    var iv = crypto.getRandomValues(new Uint8Array(12));
+    var key = await getKeyFromPassword(password, salt);
+    var enc = new TextEncoder();
+    var encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, key, enc.encode(text));
+    var combined = new Uint8Array(salt.length + iv.length + encrypted.byteLength);
+    combined.set(salt, 0);
+    combined.set(iv, salt.length);
+    combined.set(new Uint8Array(encrypted), salt.length + iv.length);
+    var b64 = btoa(String.fromCharCode.apply(null, combined));
+    var formatted = '# ENCRYPTED ENV FILE - DO NOT EDIT MANUALLY\n# Decrypt with AI .env Generator\n# Algorithm: AES-256-GCM + PBKDF2\n\n' + b64.match(/.{1,76}/g).join('\n');
+    document.getElementById('cryptoOutput').value = formatted;
+    document.getElementById('cryptoResultTitle').textContent = '\ud83d\udd10 \u52a0\u5bc6\u7ed3\u679c';
+    document.getElementById('cryptoResult').style.display = 'block';
+    showToast('\u52a0\u5bc6\u6210\u529f\uff01');
+  } catch (e) {
+    showToast('\u52a0\u5bc6\u5931\u8d25: ' + e.message, 'danger');
+  }
+}
+
+async function decryptEnv() {
+  var password = document.getElementById('cryptoPassword').value;
+  var text = document.getElementById('cryptoInput').value.trim();
+  if (!password) { showToast('\u8bf7\u8f93\u5165\u89e3\u5bc6\u5bc6\u7801', 'warning'); return; }
+  if (!text) { showToast('\u8bf7\u8f93\u5165\u8981\u89e3\u5bc6\u7684\u5185\u5bb9', 'warning'); return; }
+  try {
+    var b64 = text.split('\n').filter(function(l) { return !l.startsWith('#') && l.trim(); }).join('');
+    var raw = Uint8Array.from(atob(b64), function(c) { return c.charCodeAt(0); });
+    var salt = raw.slice(0, 16);
+    var iv = raw.slice(16, 28);
+    var data = raw.slice(28);
+    var key = await getKeyFromPassword(password, salt);
+    var decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: iv }, key, data);
+    var dec = new TextDecoder();
+    document.getElementById('cryptoOutput').value = dec.decode(decrypted);
+    document.getElementById('cryptoResultTitle').textContent = '\ud83d\udd13 \u89e3\u5bc6\u7ed3\u679c';
+    document.getElementById('cryptoResult').style.display = 'block';
+    showToast('\u89e3\u5bc6\u6210\u529f\uff01');
+  } catch (e) {
+    showToast('\u89e3\u5bc6\u5931\u8d25\uff0c\u8bf7\u68c0\u67e5\u5bc6\u7801\u662f\u5426\u6b63\u786e', 'danger');
+  }
+}
+
+function downloadCrypto() {
+  var title = document.getElementById('cryptoResultTitle').textContent;
+  var isEncrypted = title.indexOf('\u52a0\u5bc6') >= 0;
+  var text = document.getElementById('cryptoOutput').value;
+  var blob = new Blob([text], { type: 'text/plain' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = isEncrypted ? '.env.encrypted' : '.env.decrypted';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showToast('\u5df2\u4e0b\u8f7d');
+}
+
+// ==================== Validation ====================
+function validateEnv() {
+  var text = document.getElementById('validateInput').value.trim();
+  if (!text) { showToast('\u8bf7\u8f93\u5165.env\u5185\u5bb9', 'warning'); return; }
+  var lines = text.split('\n');
+  var errors = [], warnings = [], info = [];
+  var keys = {};
+  var lineNum = 0;
+  for (var i = 0; i < lines.length; i++) {
+    lineNum++;
+    var trimmed = lines[i].trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    if (!trimmed.includes('=')) {
+      errors.push({ line: lineNum, msg: '\u7f3a\u5c11 = \u53f7: "' + trimmed + '"' });
+      continue;
+    }
+    var eqIdx = trimmed.indexOf('=');
+    var key = trimmed.substring(0, eqIdx);
+    var val = trimmed.substring(eqIdx + 1);
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key.trim())) {
+      errors.push({ line: lineNum, msg: '\u53d8\u91cf\u540d\u683c\u5f0f\u65e0\u6548: "' + key + '"' });
+    }
+    if (key !== key.trim()) {
+      warnings.push({ line: lineNum, msg: '\u53d8\u91cf\u540d\u5305\u542b\u591a\u4f59\u7a7a\u683c: "' + key + '"' });
+    }
+    if (keys[key.trim()]) {
+      errors.push({ line: lineNum, msg: '\u91cd\u590d\u7684\u53d8\u91cf\u540d: "' + key.trim() + '"\uff08\u9996\u6b21\u51fa\u73b0\u5728\u7b2c ' + keys[key.trim()] + ' \u884c\uff09' });
+    }
+    keys[key.trim()] = lineNum;
+    if (!val.trim()) {
+      warnings.push({ line: lineNum, msg: '\u7a7a\u503c: "' + key.trim() + '"' });
+    }
+    var trimVal = val.trim();
+    if ((trimVal.startsWith('"') && !trimVal.endsWith('"')) || (trimVal.startsWith("'") && !trimVal.endsWith("'"))) {
+      errors.push({ line: lineNum, msg: '\u5f15\u53f7\u4e0d\u5339\u914d: "' + key.trim() + '"' });
+    }
+    if (val !== val.trimEnd() && !trimVal.startsWith('"') && !trimVal.startsWith("'")) {
+      warnings.push({ line: lineNum, msg: '\u503c\u672b\u5c3e\u6709\u7a7a\u683c: "' + key.trim() + '"' });
+    }
+    if (val.includes(' #') && !trimVal.startsWith('"') && !trimVal.startsWith("'")) {
+      info.push({ line: lineNum, msg: '\u53ef\u80fd\u5305\u542b\u884c\u5185\u6ce8\u91ca: "' + key.trim() + '"' });
+    }
+  }
+  var html = '<div class="card"><h3>\ud83d\udccb \u9a8c\u8bc1\u7ed3\u679c</h3>';
+  html += '<div class="result-stats">';
+  html += '<div class="stat"><div class="num">' + Object.keys(keys).length + '</div><div class="label">\u53d8\u91cf\u6570</div></div>';
+  html += '<div class="stat"><div class="num" style="color:var(--danger)">' + errors.length + '</div><div class="label">\u9519\u8bef</div></div>';
+  html += '<div class="stat"><div class="num" style="color:var(--warning)">' + warnings.length + '</div><div class="label">\u8b66\u544a</div></div>';
+  html += '<div class="stat"><div class="num" style="color:var(--primary)">' + info.length + '</div><div class="label">\u63d0\u793a</div></div>';
+  html += '</div>';
+  if (!errors.length && !warnings.length && !info.length) {
+    html += '<div class="alert alert-success">\ud83c\udf89 \u683c\u5f0f\u5b8c\u7f8e\uff0c\u6ca1\u6709\u53d1\u73b0\u4efb\u4f55\u95ee\u9898\uff01</div>';
+  }
+  if (errors.length) {
+    html += '<div class="alert alert-danger">\u274c \u9519\u8bef\uff08\u5fc5\u987b\u4fee\u590d\uff09</div>';
+    errors.forEach(function(e) { html += '<div class="env-line missing">\u7b2c' + e.line + '\u884c: ' + e.msg + '</div>'; });
+  }
+  if (warnings.length) {
+    html += '<div class="alert alert-warning" style="margin-top:8px">\u26a0\ufe0f \u8b66\u544a\uff08\u5efa\u8bae\u4fee\u590d\uff09</div>';
+    warnings.forEach(function(w) { html += '<div class="env-line extra">\u7b2c' + w.line + '\u884c: ' + w.msg + '</div>'; });
+  }
+  if (info.length) {
+    html += '<div class="alert alert-info" style="margin-top:8px">\ud83d\udca1 \u63d0\u793a</div>';
+    info.forEach(function(inf) { html += '<div class="env-line" style="background:var(--surface2)">\u7b2c' + inf.line + '\u884c: ' + inf.msg + '</div>'; });
+  }
+  html += '</div>';
+  document.getElementById('validateResult').innerHTML = html;
+}
+
+function formatEnv() {
+  var text = document.getElementById('validateInput').value.trim();
+  if (!text) { showToast('\u8bf7\u8f93\u5165.env\u5185\u5bb9', 'warning'); return; }
+  var lines = text.split('\n');
+  var formatted = [];
+  var seen = {};
+  for (var i = 0; i < lines.length; i++) {
+    var trimmed = lines[i].trim();
+    if (!trimmed || trimmed.startsWith('#')) { formatted.push(trimmed); continue; }
+    if (!trimmed.includes('=')) { formatted.push('# [INVALID] ' + trimmed); continue; }
+    var eqIdx = trimmed.indexOf('=');
+    var key = trimmed.substring(0, eqIdx).trim().replace(/[^A-Za-z0-9_]/g, '_').replace(/^(\d)/, '_$1');
+    var val = trimmed.substring(eqIdx + 1).trim();
+    if (seen[key]) { formatted.push('# [DUPLICATE] ' + key + '=' + val); continue; }
+    seen[key] = true;
+    if (val.startsWith('"') && !val.endsWith('"')) val += '"';
+    if (val.startsWith("'") && !val.endsWith("'")) val += "'";
+    if (val.includes(' ') && !val.startsWith('"') && !val.startsWith("'")) val = '"' + val + '"';
+    formatted.push(key + '=' + val);
+  }
+  document.getElementById('validateInput').value = formatted.join('\n');
+  showToast('\u683c\u5f0f\u5df2\u81ea\u52a8\u4fee\u590d');
+  validateEnv();
+}
+
+// ==================== Init ====================
+if (state.envs['development']) {
+  document.getElementById('multienvEditor').value = state.envs['development'];
+}
+</script>
+</body>
+</html>
